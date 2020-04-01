@@ -172,9 +172,12 @@ struct Controler
    MassSpringSystem ToRender;
 
    int CurrentScene;
-	
+   bool IsDragging;
+
+   io::CursorPosition CursorPosition;
    Controler()
    {
+      IsDragging = false;
       SetScene(1);
    }
 	
@@ -247,6 +250,9 @@ int main(void)
    auto window = windows.create(io::Window::dimensions{ 1920, 1000 }, "Mass Spring System");
    window.enableVsync(true);
 
+   auto view = View(TurnTable(), Perspective());
+   TurnTableControls controls(window, view.camera);
+	
    window.keyboardCommands()
       | io::Key(GLFW_KEY_ESCAPE,
          [&](auto const&/*event*/) { window.shouldClose(); })
@@ -258,9 +264,31 @@ int main(void)
          [&](auto const&/*event*/) { g_controler.SetScene(3); })
       | io::Key(GLFW_KEY_4,
          [&](auto const&/*event*/) { g_controler.SetScene(4); });
+
+   window.mouseCommands() | 
+      io::MouseButton(     
+         GLFW_MOUSE_BUTTON_RIGHT, [&](auto const& event)
+         {
+   			if (g_controler.CurrentScene == 3)
+   			{
+		         g_controler.ToRender.Masses[0]->IsFixed = g_controler.IsDragging = event.action == GLFW_PRESS;
+   			}
+         });
+
+   auto currentCursorCommand = window.cursorCommand();
+   window.cursorCommand() = [&](auto const& event)
+   {
+      if (g_controler.IsDragging && g_controler.CurrentScene == 3)
+      {
+         float xDiff = (g_controler.CursorPosition.x - event.x) * 40.f / window.width();
+         float yDiff = (g_controler.CursorPosition.y - event.y) * 40.f / window.height();
+         g_controler.ToRender.Masses[0]->Position.x -= xDiff;
+         g_controler.ToRender.Masses[0]->Position.y += yDiff;
+      }
+      g_controler.CursorPosition = event;
+      currentCursorCommand(event);
+   };
 	
-   auto view = View(TurnTable(), Perspective());
-   TurnTableControls controls(window, view.camera);
 
    glClearColor(1.f, 1.f, 1.f, 1.f);
 
@@ -276,7 +304,7 @@ int main(void)
 
    Plane* ground = &floor;
    auto green = Phong(Colour(0.2f, 0.8f, 1.f), LightPosition(10.f, 10.f, 10.f));
-   auto quad = Quad(Point1(20, -10, 20), Point2(20, -10, -20), Point3(-20, -10, -20), Point4(-20, -10, 20));
+   auto quad = Quad(Point1(200, -10, 200), Point2(200, -10, -200), Point3(-200, -10, -200), Point4(-200, -10, 200));
    auto groundQuad = givr::createRenderable(quad, green);
 
    window.run([&](float frameTime)
